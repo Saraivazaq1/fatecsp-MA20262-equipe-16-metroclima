@@ -1,0 +1,83 @@
+// Quantas pessoas entraram? -- Número inteiro, separador de milhares
+Entradas := SUM ( fEntradas[Entradas] )
+
+// Quantos registros estação-dia? -- Inteiro
+Qtd Registros := COUNTROWS ( fEntradas )
+
+// Quantas estações? Cada estação conta uma vez por linha -- Inteiro
+Qtd Estações := DISTINCTCOUNT ( fEntradas[Chave_Estacao] )
+
+// Quantos dias com registro? -- Inteiro
+Qtd Dias := DISTINCTCOUNT ( fEntradas[Data] )
+
+// Entradas de uma estação em um dia, em média -- Número, 0 casas
+Média por Estação-Dia := DIVIDE ( [Entradas], [Qtd Registros] )
+
+// Entradas da rede (ou da linha filtrada) por dia -- Número, 0 casas
+Média Diária da Rede := DIVIDE ( [Entradas], [Qtd Dias] )
+
+// Quanto se esperava? Média da estação para o tipo do dia; feriado não tem referência -- Número, 0 casas
+Entradas Esperadas :=
+SUMX (
+    fEntradas,
+    SWITCH (
+        fEntradas[Tipo_Dia],
+        "Dia útil", RELATED ( dEstacao[Media_Dia_Util] ),
+        "Sábado", RELATED ( dEstacao[Media_Sabado] ),
+        "Domingo", RELATED ( dEstacao[Media_Domingo] )
+    )
+)
+
+// Entradas só nos dias que têm referência (exclui feriados) -- Inteiro
+Entradas com Referência := CALCULATE ( [Entradas], fEntradas[Tipo_Dia] <> "Feriado" )
+
+// Realizado ÷ esperado: 100% = dia normal; abaixo = queda; acima = pico -- Porcentagem, 1 casa
+% do Esperado := DIVIDE ( [Entradas com Referência], [Entradas Esperadas] )
+
+// Entradas só em dias úteis -- Inteiro
+Entradas Dia Útil := CALCULATE ( [Entradas], fEntradas[Tipo_Dia] = "Dia útil" )
+
+// Peso do dia útil no total -- Porcentagem, 1 casa
+% Entradas Dia Útil := DIVIDE ( [Entradas Dia Útil], [Entradas] )
+
+// Quantos registros ficaram abaixo do limite da Etapa 2 -- Inteiro
+Qtd Quedas Atípicas :=
+CALCULATE ( COUNTROWS ( fEntradas ), fEntradas[Status_Entradas] = "Queda atípica" ) + 0
+
+// Quantos registros ficaram acima do limite da Etapa 2 -- Inteiro
+Qtd Picos Atípicos :=
+CALCULATE ( COUNTROWS ( fEntradas ), fEntradas[Status_Entradas] = "Pico atípico" ) + 0
+
+// Entradas sem os registros marcados como atípicos -- Inteiro
+Entradas sem Atípicos := CALCULATE ( [Entradas], fEntradas[Status_Entradas] = "OK" )
+
+// Variação da média diária contra o mês anterior -- Porcentagem, 1 casa
+Cresc. MoM % :=
+VAR Atual = [Média Diária da Rede]
+VAR Anterior =
+    CALCULATE ( [Média Diária da Rede], DATEADD ( dCalendario[Data], -1, MONTH ) )
+RETURN
+    IF ( NOT ISBLANK ( Atual ), DIVIDE ( Atual - Anterior, Anterior ) )
+
+Conf Linhas fEntradas := COUNTROWS ( fEntradas )
+Conf Linhas Rejeitados := COUNTROWS ( Rejeitados ) + 0
+Conf Linhas Lidas := [Conf Linhas fEntradas] + [Conf Linhas Rejeitados]
+
+// integridade: devem ser 0
+Conf Entradas sem Estação :=
+COUNTROWS ( FILTER ( fEntradas, ISBLANK ( RELATED ( dEstacao[Estacao] ) ) ) ) + 0
+Conf Entradas sem Data :=
+COUNTROWS ( FILTER ( fEntradas, ISBLANK ( RELATED ( dCalendario[Mes] ) ) ) ) + 0
+
+// unicidade das chaves primárias: deve ser 0
+Conf PK Duplicada :=
+( COUNTROWS ( dEstacao ) - DISTINCTCOUNT ( dEstacao[Chave] ) )
+    + ( COUNTROWS ( dCalendario ) - DISTINCTCOUNT ( dCalendario[Data] ) )
+
+// grade completa: 66 estações x 181 dias - linhas da fato; deve ser 0 (sem filtros)
+Conf Lacunas Estação-Dia :=
+COUNTROWS ( dEstacao ) * COUNTROWS ( dCalendario ) - COUNTROWS ( fEntradas )
+
+// a medida reproduz a referência da Etapa 2 (Media_Ref): deve ser 0
+Conf Dif Esperado :=
+ROUND ( SUMX ( fEntradas, fEntradas[Media_Ref] ) - [Entradas Esperadas], 2 )
