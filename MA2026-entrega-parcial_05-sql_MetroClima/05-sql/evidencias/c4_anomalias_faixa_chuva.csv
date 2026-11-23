@@ -1,0 +1,4 @@
+faixa_chuva;dias_no_periodo;total_entradas;quedas_atipicas;picos_atipicos;taxa_quedas_pct
+1-Seco (0 mm);133;250793172;0;5;0.0
+2-Chuva Fraca (< 10 mm);24;43222932;0;0;0.0
+3-Chuva Forte (>= 10 mm);24;45824696;69;0;4.36

@@ -1,0 +1,11 @@
+id_estacao;estacao;linha;dias_operacao;total_entradas;media_diaria
+EST38;Corinthians-Itaquera;Vermelha;181;11760731;64976.0
+EST45;Tatuapé;Vermelha;181;11760494;64975.0
+EST50;República;Vermelha;181;11760494;64975.0
+EST52;Marechal Deodoro;Vermelha;181;11760494;64975.0
+EST53;Palmeiras-Barra Funda;Vermelha;181;11760494;64975.0
+EST31;Trianon-Masp;Verde;181;9481249;52383.0
+EST36;Ana Rosa (L2);Verde;181;9481249;52383.0
+EST24;Vila Prudente;Verde;181;9481144;52382.0
+EST01;Jabaquara;Azul;181;8755748;48374.0
+EST08;Ana Rosa;Azul;181;8755491;48373.0

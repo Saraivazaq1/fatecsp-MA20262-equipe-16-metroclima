@@ -1,0 +1,13 @@
+linha;condicao_chuva;registros_estacao_dia;media_entradas;pct_medio_vs_referencia;qtd_quedas_atipicas;qtd_picos_atipicos
+Azul;Chuva Forte;552;28858.0;98.73;20;0
+Azul;Chuva Leve;552;27238.0;100.0;0;0
+Azul;Sem Chuva;3059;28517.0;100.01;0;1
+Prata;Chuva Forte;264;6615.0;98.41;12;0
+Prata;Chuva Leve;264;6250.0;100.0;0;0
+Prata;Sem Chuva;1463;6529.0;100.0;0;0
+Verde;Chuva Forte;336;31222.0;97.6;23;0
+Verde;Chuva Leve;336;29352.0;100.0;0;0
+Verde;Sem Chuva;1862;30795.0;100.04;0;2
+Vermelha;Chuva Forte;432;40875.0;98.87;14;0
+Vermelha;Chuva Leve;432;38600.0;100.0;0;0
+Vermelha;Sem Chuva;2394;40378.0;100.03;0;2
