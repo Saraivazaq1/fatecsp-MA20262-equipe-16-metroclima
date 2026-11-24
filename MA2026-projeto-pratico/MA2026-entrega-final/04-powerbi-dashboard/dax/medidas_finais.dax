@@ -1,0 +1,257 @@
+// =============================================================
+// medidas_finais.dax -- Etapa V (Power BI) -- Projeto MetroClima
+// ILP590 -- Fatec São Paulo. Origem: medidas_preliminares.dax (Etapa III),
+// com fEntradas -> fato_entradas, dEstacao -> dim_estacao,
+// dCalendario -> dim_tempo e dClima -> dim_clima (views do metroclima.db).
+//
+// COMO USAR: Exibição [DAX] (Consulta DAX) -> Nova consulta -> cole o arquivo
+// inteiro -> Executar. Acima de cada MEASURE aparece "Atualizar modelo: adicionar
+// nova medida" (ou "Atualizar modelo com alterações" no topo): clique para gravar
+// todas em _Medidas. Formatos e pastas de exibição são ajustados à mão
+// (tabela no fim deste arquivo).
+// No Power BI, cada medida se digita como  Nome = fórmula  (sem o "MEASURE '_Medidas'[...]").
+// =============================================================
+DEFINE
+
+    // ---------- 01 Demanda ----------
+    // Quantas pessoas entraram? (= SUM(entradas) das consultas C1/C2/K4)
+    MEASURE '_Medidas'[Entradas] =
+        SUM ( fato_entradas[entradas] )
+
+    // Quantos registros estação-dia?
+    MEASURE '_Medidas'[Qtd Registros] =
+        COUNTROWS ( fato_entradas )
+
+    // Quantas estações? (66 na rede)
+    MEASURE '_Medidas'[Qtd Estações] =
+        DISTINCTCOUNT ( fato_entradas[id_estacao] )
+
+    // Quantos dias com registro? (181 no semestre)
+    MEASURE '_Medidas'[Qtd Dias] =
+        DISTINCTCOUNT ( fato_entradas[data] )
+
+    // Entradas de uma estação em um dia, em média (= AVG(entradas) da C1/C3)
+    MEASURE '_Medidas'[Média por Estação-Dia] =
+        DIVIDE ( [Entradas], [Qtd Registros] )
+
+    // Entradas da rede (ou da linha filtrada) por dia
+    MEASURE '_Medidas'[Média Diária da Rede] =
+        DIVIDE ( [Entradas], [Qtd Dias] )
+
+    // Peso da estação/linha dentro do que está selecionado
+    MEASURE '_Medidas'[Participação %] =
+        DIVIDE ( [Entradas], CALCULATE ( [Entradas], ALLSELECTED ( dim_estacao ) ) )
+
+    // Posição da estação pelo volume (empates na mesma posição -- DENSE)
+    MEASURE '_Medidas'[Ranking Estação] =
+        IF (
+            ISINSCOPE ( dim_estacao[estacao_linha] ),
+            RANKX ( ALLSELECTED ( dim_estacao[estacao_linha] ), [Entradas], , DESC, DENSE )
+        )
+
+    // Cor fixa por linha do Metrô, usada em todos os visuais (Formatação condicional -> Valor do campo)
+    MEASURE '_Medidas'[Cor Linha] =
+        SWITCH (
+            SELECTEDVALUE ( dim_estacao[nome_linha] ),
+            "Azul", "#0455A1",
+            "Verde", "#007E5E",
+            "Vermelha", "#EE372F",
+            "Prata", "#8C9294",
+            "#7F7F7F"
+        )
+
+    // ---------- 02 Esperado ----------
+    // Quanto se esperava? Referência media_ref calculada na Etapa II e gravada no banco
+    // (mesma regra da consulta C2: SUM(media_ref)).
+    MEASURE '_Medidas'[Entradas Esperadas] =
+        SUM ( fato_entradas[media_ref] )
+
+    // Realizado - esperado (negativo = faltou passageiro)
+    MEASURE '_Medidas'[Desvio vs Esperado] =
+        [Entradas] - [Entradas Esperadas]
+
+    // Realizado / esperado: 100% = normal; abaixo = queda; acima = pico (= pct_do_esperado da C2)
+    MEASURE '_Medidas'[% do Esperado] =
+        DIVIDE ( [Entradas], [Entradas Esperadas] )
+
+    // Média das razões estação-dia (= pct_medio_vs_referencia da C3, em fração)
+    MEASURE '_Medidas'[Razão Média %] =
+        AVERAGE ( fato_entradas[razao_media] )
+
+    // Cor por faixa de atingimento (formatação condicional -> Valor do campo)
+    MEASURE '_Medidas'[Cor % Esperado] =
+        VAR p = [% do Esperado]
+        RETURN
+            SWITCH (
+                TRUE (),
+                ISBLANK ( p ), "#BDBDBD",
+                p >= 0.99, "#2E7D32",
+                p >= 0.97, "#F9A825",
+                "#B20000"
+            )
+
+    // ---------- 03 Anomalias ----------
+    MEASURE '_Medidas'[Qtd Quedas Atípicas] =
+        SUM ( fato_entradas[flag_queda_atipica] ) + 0
+
+    MEASURE '_Medidas'[Qtd Picos Atípicos] =
+        SUM ( fato_entradas[flag_pico_atipico] ) + 0
+
+    MEASURE '_Medidas'[Qtd Anomalias] =
+        [Qtd Quedas Atípicas] + [Qtd Picos Atípicos]
+
+    // % dos registros estação-dia com queda atípica (= taxa_quedas_pct da C4, em fração)
+    MEASURE '_Medidas'[Taxa de Quedas %] =
+        DIVIDE ( [Qtd Quedas Atípicas], [Qtd Registros] )
+
+    // Entradas só dos registros normais
+    MEASURE '_Medidas'[Entradas sem Atípicos] =
+        CALCULATE ( [Entradas], fato_entradas[status_entradas] = "Normal" )
+
+    // Estação-mês crítica pela regra da C5: < 90% do esperado OU >= 2 quedas (1 = crítica)
+    // Uso: filtro de visual "Flag Crítico C5 é 1" na tabela da Página 2.
+    MEASURE '_Medidas'[Flag Crítico C5] =
+        IF ( [% do Esperado] < 0.9 || [Qtd Quedas Atípicas] >= 2, 1, 0 )
+
+    // ---------- 04 Tempo ----------
+    MEASURE '_Medidas'[Média Diária Mês Anterior] =
+        CALCULATE ( [Média Diária da Rede], DATEADD ( dim_tempo[data], -1, MONTH ) )
+
+    // Variação da média diária contra o mês anterior (mesma regra da Etapa III)
+    MEASURE '_Medidas'[Cresc. MoM %] =
+        VAR Atual = [Média Diária da Rede]
+        VAR Anterior = [Média Diária Mês Anterior]
+        RETURN
+            IF ( NOT ISBLANK ( Atual ), DIVIDE ( Atual - Anterior, Anterior ) )
+
+    MEASURE '_Medidas'[Entradas Acumulado Ano] =
+        TOTALYTD ( [Entradas], dim_tempo[data] )
+
+    // ---------- 05 Clima ----------
+    // dim_tempo e dim_estacao NÃO filtram dim_clima (são dimensões irmãs).
+    // TREATAS leva os dias visíveis da fato até dim_clima.
+    MEASURE '_Medidas'[Precipitação Média (mm)] =
+        CALCULATE (
+            AVERAGE ( dim_clima[precipitacao] ),
+            TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+        )
+
+    MEASURE '_Medidas'[Temp Máx Média] =
+        CALCULATE (
+            AVERAGE ( dim_clima[temp_max] ),
+            TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+        )
+
+    // = dias_no_periodo da C4 quando usada com faixa_chuva no eixo
+    MEASURE '_Medidas'[Dias com Chuva Forte] =
+        CALCULATE ( [Qtd Dias], dim_clima[condicao_chuva] = "Chuva Forte" ) + 0
+
+    MEASURE '_Medidas'[% do Esperado Chuva Forte] =
+        CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Chuva Forte" )
+
+    MEASURE '_Medidas'[% do Esperado Sem Chuva] =
+        CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Sem Chuva" )
+
+    // KPI do cruzamento com o fator externo: quantos pontos percentuais a
+    // demanda perde (frente ao esperado) num dia de chuva forte, comparado a um dia seco.
+    MEASURE '_Medidas'[Efeito Chuva Forte (p.p.)] =
+        [% do Esperado Chuva Forte] - [% do Esperado Sem Chuva]
+
+    MEASURE '_Medidas'[Taxa de Quedas Chuva Forte %] =
+        CALCULATE ( [Taxa de Quedas %], dim_clima[condicao_chuva] = "Chuva Forte" )
+
+    // ---------- 06 Rótulos ----------
+    MEASURE '_Medidas'[Título Visão Geral] =
+        "Como está a demanda? -- "
+            & IF (
+                HASONEVALUE ( dim_estacao[nome_linha] ),
+                "Linha " & VALUES ( dim_estacao[nome_linha] ),
+                "todas as linhas"
+            )
+
+    MEASURE '_Medidas'[Título Estação] =
+        "Estação " & SELECTEDVALUE ( dim_estacao[estacao_linha], "(várias)" )
+
+    MEASURE '_Medidas'[Período Selecionado] =
+        VAR Ini = CALCULATE ( MIN ( fato_entradas[data] ) )
+        VAR Fim = CALCULATE ( MAX ( fato_entradas[data] ) )
+        RETURN
+            IF (
+                ISBLANK ( Ini ),
+                "Sem registros no período",
+                "Registros de " & FORMAT ( Ini, "dd/MM/yyyy" ) & " a " & FORMAT ( Fim, "dd/MM/yyyy" )
+            )
+
+    // ---------- 99 Conferência ----------
+    MEASURE '_Medidas'[Conf Linhas fato_entradas] =
+        COUNTROWS ( fato_entradas )
+
+    // integridade: devem ser 0
+    MEASURE '_Medidas'[Conf Entradas sem Estação] =
+        COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_estacao[estacao] ) ) ) ) + 0
+
+    MEASURE '_Medidas'[Conf Entradas sem Data] =
+        COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_tempo[mes] ) ) ) ) + 0
+
+    MEASURE '_Medidas'[Conf Entradas sem Clima] =
+        COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_clima[faixa_chuva] ) ) ) ) + 0
+
+    // unicidade das chaves primárias: deve ser 0
+    MEASURE '_Medidas'[Conf PK Duplicada] =
+        ( COUNTROWS ( dim_estacao ) - DISTINCTCOUNT ( dim_estacao[id_estacao] ) )
+            + ( COUNTROWS ( dim_tempo ) - DISTINCTCOUNT ( dim_tempo[data] ) )
+            + ( COUNTROWS ( dim_clima ) - DISTINCTCOUNT ( dim_clima[data] ) )
+
+    // grade completa: 66 estações x 181 dias - linhas da fato; deve ser 0 (sem filtros)
+    MEASURE '_Medidas'[Conf Lacunas Estação-Dia] =
+        COUNTROWS ( dim_estacao ) * COUNTROWS ( dim_tempo ) - COUNTROWS ( fato_entradas )
+
+    // flags da view x texto do status: devem ser 0
+    MEASURE '_Medidas'[Conf Dif Quedas] =
+        [Qtd Quedas Atípicas]
+            - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Queda Atípica" ) + 0 )
+
+    MEASURE '_Medidas'[Conf Dif Picos] =
+        [Qtd Picos Atípicos]
+            - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Pico Atípico" ) + 0 )
+
+    // tipo/localidade: entradas / media_ref tem de reproduzir razao_media. Deve ser 0.
+    // Se media_ref tiver sido lida com localidade pt-BR ("36953.33" -> 3695333), todas as linhas acusam.
+    MEASURE '_Medidas'[Conf Razão Divergente] =
+        COUNTROWS (
+            FILTER (
+                fato_entradas,
+                ABS ( DIVIDE ( fato_entradas[entradas], fato_entradas[media_ref] ) - fato_entradas[razao_media] ) > 0.001
+            )
+        ) + 0
+
+// Teste rápido: KPIs da rede (devem bater com K1/K4 e C2 da etapa de SQL)
+// Esperado: 339.840.800 | 11.946 | 66 | 181 | 69 | 5 | 99,71%
+EVALUATE
+ROW (
+    "Entradas", [Entradas],
+    "Registros", [Qtd Registros],
+    "Estacoes", [Qtd Estações],
+    "Dias", [Qtd Dias],
+    "Quedas", [Qtd Quedas Atípicas],
+    "Picos", [Qtd Picos Atípicos],
+    "Pct Esperado", ROUND ( 100 * [% do Esperado], 2 )
+)
+
+// =============================================================
+// FORMATOS E PASTAS DE EXIBIÇÃO (ajustar à mão em Ferramentas de medida / Modelo)
+// 01 Demanda   : Entradas, Qtd Registros, Qtd Estações, Qtd Dias -> Número inteiro, separador de milhar
+//                Média por Estação-Dia, Média Diária da Rede -> Decimal 0 casas, separador de milhar
+//                Participação % -> Porcentagem 1 casa; Ranking Estação -> Inteiro; Cor Linha -> Texto
+// 02 Esperado  : Entradas Esperadas, Desvio vs Esperado -> Decimal 0 casas, separador de milhar
+//                % do Esperado, Razão Média % -> Porcentagem 2 casas; Cor % Esperado -> Texto
+// 03 Anomalias : Qtd Quedas/Picos/Anomalias -> Inteiro; Taxa de Quedas % -> Porcentagem 2 casas
+//                Entradas sem Atípicos -> Inteiro, separador de milhar; Flag Crítico C5 -> Inteiro
+// 04 Tempo     : Média Diária Mês Anterior -> Decimal 0 casas; Cresc. MoM % -> Porcentagem 1 casa
+//                Entradas Acumulado Ano -> Inteiro, separador de milhar
+// 05 Clima     : Precipitação Média (mm), Temp Máx Média -> Decimal 1 casa; Dias com Chuva Forte -> Inteiro
+//                % do Esperado Chuva Forte / Sem Chuva, Efeito Chuva Forte (p.p.),
+//                Taxa de Quedas Chuva Forte % -> Porcentagem 2 casas
+// 06 Rótulos   : Título Visão Geral, Título Estação, Período Selecionado -> Texto
+// 99 Conferência: todas as Conf ... -> Inteiro
+// =============================================================

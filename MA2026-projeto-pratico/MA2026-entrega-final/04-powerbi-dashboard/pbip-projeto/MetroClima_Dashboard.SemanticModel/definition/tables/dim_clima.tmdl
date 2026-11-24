@@ -1,0 +1,96 @@
+table dim_clima
+	lineageTag: 9a089d37-07e1-4c7e-bb6a-5108cd704a83
+
+	column data
+		dataType: dateTime
+		formatString: Short Date
+		lineageTag: 9ccc1d5b-8588-4e37-9f4a-473d3bbded52
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column cidade
+		dataType: string
+		isHidden
+		lineageTag: cb4936b7-23e5-45e8-aee9-485636ca5845
+		summarizeBy: none
+		sourceColumn: cidade
+
+	column temp_max
+		dataType: double
+		formatString: 0.0
+		lineageTag: 20137238-109a-4d3a-8163-a1c24902ff15
+		summarizeBy: none
+		sourceColumn: temp_max
+
+	column temp_min
+		dataType: double
+		formatString: 0.0
+		lineageTag: 61829641-d6f4-44d0-989b-20e93e2684a7
+		summarizeBy: none
+		sourceColumn: temp_min
+
+	column precipitacao
+		dataType: double
+		formatString: 0.0
+		lineageTag: f462dee8-b2e7-44b6-8d48-9a19fbf4c007
+		summarizeBy: none
+		sourceColumn: precipitacao
+
+	column condicao_chuva
+		dataType: string
+		lineageTag: fb0b9268-dc09-466b-b191-b6a61ee90f2c
+		summarizeBy: none
+		sourceColumn: condicao_chuva
+		sortByColumn: ordem_condicao
+
+	column faixa_chuva
+		dataType: string
+		lineageTag: 7326a82f-5456-4dfa-a974-81008d4bb2da
+		summarizeBy: none
+		sourceColumn: faixa_chuva
+
+	column ordem_condicao
+		dataType: int64
+		isHidden
+		lineageTag: 7384451c-8526-4712-aa71-016863f6c4c9
+		summarizeBy: none
+		sourceColumn: ordem_condicao
+
+	partition dim_clima = m
+		mode: import
+		source =
+				// dim_clima -- view dim_clima da etapa de SQL (clima_diario SIMULADO até a Etapa 6 / API Open-Meteo)
+				// Grão: um dia em São Paulo (181). PK no modelo: data.
+				// O filtro cidade = 'São Paulo' é o mesmo das consultas C3 e C4 (todas as estações estão em SP).
+				// faixa_chuva: MESMA regra CASE da consulta C4 (o número na frente garante a ordem).
+				let
+				    Fonte = Odbc.Query(pConexaoODBC,
+				        "SELECT data, cidade, temp_max, temp_min, precipitacao, condicao_chuva
+				           FROM dim_clima
+				          WHERE cidade = 'São Paulo'"),
+				    Tipos = Table.TransformColumnTypes(Fonte, {
+				        {"data", type date}, {"cidade", type text},
+				        {"temp_max", type number}, {"temp_min", type number},
+				        {"precipitacao", type number}, {"condicao_chuva", type text}}, "en-US"),
+				    ComFaixa = Table.AddColumn(Tipos, "faixa_chuva",
+				        each if [precipitacao] = null then "0-Sem dado"
+				             else if [precipitacao] = 0 then "1-Seco (0 mm)"
+				             else if [precipitacao] < 10 then "2-Chuva Fraca (< 10 mm)"
+				             else "3-Chuva Forte (>= 10 mm)",
+				        type text),
+				    // só para ordenar condicao_chuva no eixo (Sem Chuva -> Chuva Leve -> Chuva Forte)
+				    ComOrdem = Table.AddColumn(ComFaixa, "ordem_condicao",
+				        each if [condicao_chuva] = "Sem Chuva" then 1
+				             else if [condicao_chuva] = "Chuva Leve" then 2
+				             else if [condicao_chuva] = "Chuva Forte" then 3
+				             else 9,
+				        Int64.Type)
+				in
+				    ComOrdem
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,100 @@
+table fato_entradas
+	lineageTag: 8e6b2267-d9ce-40c7-bb20-2cedacb00f2b
+
+	column data
+		dataType: dateTime
+		isHidden
+		formatString: Short Date
+		lineageTag: 03ab0825-a657-4f86-88c2-345af0857eaf
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column id_estacao
+		dataType: string
+		isHidden
+		lineageTag: 801cfaf5-470a-461b-a3d4-486c1fd90d79
+		summarizeBy: none
+		sourceColumn: id_estacao
+
+	column linha
+		dataType: int64
+		isHidden
+		lineageTag: 9e2c3386-1d71-411c-8798-c1b41c69eb07
+		summarizeBy: none
+		sourceColumn: linha
+
+	column entradas
+		dataType: int64
+		isHidden
+		lineageTag: 6f88950a-9e63-4a2a-ae76-8176f2f0ca74
+		summarizeBy: none
+		sourceColumn: entradas
+
+	column tipo_dia
+		dataType: string
+		lineageTag: b127caa1-8ea1-4f3a-8664-10a55ca84daa
+		summarizeBy: none
+		sourceColumn: tipo_dia
+
+	column media_ref
+		dataType: double
+		isHidden
+		formatString: 0.0
+		lineageTag: aacc0f1b-8579-4d9e-b9f8-3b23d55a82ce
+		summarizeBy: none
+		sourceColumn: media_ref
+
+	column razao_media
+		dataType: double
+		isHidden
+		formatString: 0.0
+		lineageTag: 78312a19-06be-4e9a-a4a4-ce7ce74fb9a1
+		summarizeBy: none
+		sourceColumn: razao_media
+
+	column status_entradas
+		dataType: string
+		lineageTag: c45d70ef-e778-4a20-8058-87b32f75d028
+		summarizeBy: none
+		sourceColumn: status_entradas
+
+	column flag_queda_atipica
+		dataType: int64
+		isHidden
+		lineageTag: a6d5d695-5ced-40b7-8aa4-86afbe03992d
+		summarizeBy: none
+		sourceColumn: flag_queda_atipica
+
+	column flag_pico_atipico
+		dataType: int64
+		isHidden
+		lineageTag: 385ab264-5b8e-48a2-8dd7-662934d303d9
+		summarizeBy: none
+		sourceColumn: flag_pico_atipico
+
+	partition fato_entradas = m
+		mode: import
+		source =
+				// fato_entradas -- view fato_entradas da etapa de SQL (= fEntradas da Etapa III)
+				// Grão: uma estação em um dia (66 x 181 = 11.946). Nenhuma regra de limpeza aqui:
+				// media_ref, razao_media, status e flags já vêm do banco.
+				let
+				    Fonte = Odbc.Query(pConexaoODBC,
+				        "SELECT data, id_estacao, linha, entradas, tipo_dia, media_ref, razao_media,
+				                status_entradas, flag_queda_atipica, flag_pico_atipico
+				           FROM fato_entradas"),
+				    Tipos = Table.TransformColumnTypes(Fonte, {
+				        {"data", type date}, {"id_estacao", type text}, {"linha", Int64.Type},
+				        {"entradas", Int64.Type}, {"tipo_dia", type text},
+				        {"media_ref", type number}, {"razao_media", type number},
+				        {"status_entradas", type text},
+				        {"flag_queda_atipica", Int64.Type}, {"flag_pico_atipico", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,111 @@
+table dim_estacao
+	lineageTag: a883a1fd-6c26-4ff8-9329-b8db4714d493
+
+	column id_estacao
+		dataType: string
+		isHidden
+		lineageTag: 776727f4-efec-4054-96be-5d42a6b55759
+		summarizeBy: none
+		sourceColumn: id_estacao
+
+	column chave_estacao
+		dataType: string
+		isHidden
+		lineageTag: 5711cce5-40e7-4faa-896d-b16e479e4fec
+		summarizeBy: none
+		sourceColumn: chave_estacao
+
+	column estacao
+		dataType: string
+		lineageTag: bea256dc-d675-4d40-8b5d-59230505f6fa
+		summarizeBy: none
+		sourceColumn: estacao
+
+	column sigla
+		dataType: string
+		lineageTag: 68a621ed-e75f-4e4d-9f19-407ad3268c3d
+		summarizeBy: none
+		sourceColumn: sigla
+
+	column linha
+		dataType: int64
+		isHidden
+		lineageTag: bacb662f-87e9-4664-9907-2d51d29e1066
+		summarizeBy: none
+		sourceColumn: linha
+
+	column nome_linha
+		dataType: string
+		lineageTag: 7da57363-cb75-48e0-912b-559e5eb2909d
+		summarizeBy: none
+		sourceColumn: nome_linha
+		sortByColumn: linha
+
+	column estacao_linha
+		dataType: string
+		lineageTag: b948432f-6f0d-48cf-a07a-bed1b4eab1cb
+		summarizeBy: none
+		sourceColumn: estacao_linha
+
+	column media_dia_util
+		dataType: double
+		isHidden
+		formatString: 0.0
+		lineageTag: 2ee69a8f-6fe6-432a-885b-f9708926219c
+		summarizeBy: none
+		sourceColumn: media_dia_util
+
+	column media_sabado
+		dataType: double
+		isHidden
+		formatString: 0.0
+		lineageTag: f6b100a5-1518-4f81-933d-a93a94e46445
+		summarizeBy: none
+		sourceColumn: media_sabado
+
+	column media_domingo
+		dataType: double
+		isHidden
+		formatString: 0.0
+		lineageTag: 9e8c6e5a-0361-4180-ad2b-407dd7b5e173
+		summarizeBy: none
+		sourceColumn: media_domingo
+
+	column dias_registrados
+		dataType: int64
+		isHidden
+		lineageTag: 5556a9f0-c630-4a67-985a-7116c1577f8f
+		summarizeBy: none
+		sourceColumn: dias_registrados
+
+	column dias_esperados
+		dataType: int64
+		isHidden
+		lineageTag: 67e58479-d46a-4ec6-aab0-307629ed896e
+		summarizeBy: none
+		sourceColumn: dias_esperados
+
+	partition dim_estacao = m
+		mode: import
+		source =
+				// dim_estacao -- view dim_estacao da etapa de SQL (= dEstacao da Etapa III)
+				// Grão: uma estação em uma linha (66). PK: id_estacao.
+				let
+				    Fonte = Odbc.Query(pConexaoODBC,
+				        "SELECT id_estacao, chave_estacao, estacao, sigla, linha, nome_linha,
+				                estacao_linha, media_dia_util, media_sabado, media_domingo,
+				                dias_registrados, dias_esperados
+				           FROM dim_estacao"),
+				    Tipos = Table.TransformColumnTypes(Fonte, {
+				        {"id_estacao", type text}, {"chave_estacao", type text}, {"estacao", type text},
+				        {"sigla", type text}, {"linha", Int64.Type}, {"nome_linha", type text},
+				        {"estacao_linha", type text}, {"media_dia_util", type number},
+				        {"media_sabado", type number}, {"media_domingo", type number},
+				        {"dias_registrados", Int64.Type}, {"dias_esperados", Int64.Type}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

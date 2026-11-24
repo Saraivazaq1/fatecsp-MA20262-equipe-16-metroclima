@@ -1,0 +1,124 @@
+// =============================================================
+// validacao.dax -- Etapa V (Power BI) -- Projeto MetroClima
+// Execute UMA consulta por vez na Exibição de Consulta DAX
+// (selecione o bloco e use Executar ou F5). Compare com
+// MA2026-entrega-final/05-sql/evidencias/ (k1, k4, c1 ... c5).
+// Pré-requisito: as medidas de medidas_finais.dax já gravadas em _Medidas.
+// =============================================================
+
+// V-K1) Batimento volumétrico (= K1)
+// Esperado: 11946 | 339840800 | 66 | 181
+EVALUATE
+ROW (
+    "linhas_aceitas", [Conf Linhas fato_entradas],
+    "soma_entradas", [Entradas],
+    "estacoes", COUNTROWS ( dim_estacao ),
+    "dias", COUNTROWS ( dim_tempo )
+)
+
+// V-K4) Batimento por linha (= K4)
+// Esperado: Azul 118199000/20/1 | Prata 12949100/12/0 | Verde 77693700/23/2 | Vermelha 130999000/14/2
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_estacao[nome_linha],
+    "total_entradas", [Entradas],
+    "qtd_quedas_atipicas", [Qtd Quedas Atípicas],
+    "qtd_picos_atipicos", [Qtd Picos Atípicos]
+)
+ORDER BY dim_estacao[nome_linha]
+
+// V-K4 TOTAL) linha TOTAL GERAL da K4. Esperado: 339840800 | 69 | 5
+EVALUATE
+ROW (
+    "total_entradas", [Entradas],
+    "qtd_quedas_atipicas", [Qtd Quedas Atípicas],
+    "qtd_picos_atipicos", [Qtd Picos Atípicos]
+)
+
+// V-C1) Ranking das 10 estações com maior volume (= C1)
+// Desempate por id_estacao, como saiu no SQL (há empates em 11.760.494 e em 8.755.491).
+EVALUATE
+TOPN (
+    10,
+    SUMMARIZECOLUMNS (
+        dim_estacao[id_estacao], dim_estacao[estacao], dim_estacao[nome_linha],
+        "dias_operacao", [Qtd Dias],
+        "total_entradas", [Entradas],
+        "media_diaria", ROUND ( [Média por Estação-Dia], 0 )
+    ),
+    [total_entradas], DESC,
+    dim_estacao[id_estacao], ASC
+)
+ORDER BY [total_entradas] DESC, dim_estacao[id_estacao] ASC
+
+// V-C2) Realizado x esperado por linha e mês (= C2). Esperado: 24 linhas.
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_estacao[linha], dim_estacao[nome_linha], dim_tempo[ano_mes],
+    "entradas_realizadas", [Entradas],
+    "entradas_esperadas", ROUND ( [Entradas Esperadas], 0 ),
+    "pct_do_esperado", ROUND ( 100 * [% do Esperado], 2 )
+)
+ORDER BY dim_estacao[linha], dim_tempo[ano_mes]
+
+// V-C3) Linha x condição de chuva (= C3, hipótese central). Esperado: 12 linhas.
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_estacao[nome_linha], dim_clima[condicao_chuva],
+    "registros_estacao_dia", [Qtd Registros],
+    "media_entradas", ROUND ( [Média por Estação-Dia], 0 ),
+    "pct_medio_vs_referencia", ROUND ( 100 * [Razão Média %], 2 ),
+    "qtd_quedas_atipicas", [Qtd Quedas Atípicas],
+    "qtd_picos_atipicos", [Qtd Picos Atípicos]
+)
+ORDER BY dim_estacao[nome_linha], dim_clima[condicao_chuva]
+
+// V-C4) Anomalias por faixa de precipitação (= C4). Esperado: 3 linhas.
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_clima[faixa_chuva],
+    "dias_no_periodo", [Qtd Dias],
+    "total_entradas", [Entradas],
+    "quedas_atipicas", [Qtd Quedas Atípicas],
+    "picos_atipicos", [Qtd Picos Atípicos],
+    "taxa_quedas_pct", ROUND ( 100 * [Taxa de Quedas %], 2 )
+)
+ORDER BY dim_clima[faixa_chuva]
+
+// V-C5) Estações e meses críticos: < 90% do esperado OU >= 2 quedas (= C5). Esperado: 10 linhas.
+EVALUATE
+FILTER (
+    SUMMARIZECOLUMNS (
+        dim_estacao[nome_linha], dim_estacao[estacao], dim_tempo[ano_mes],
+        "entradas_realizadas", [Entradas],
+        "entradas_esperadas", ROUND ( [Entradas Esperadas], 0 ),
+        "pct_esperado", ROUND ( 100 * [% do Esperado], 2 ),
+        "quedas_atipicas", [Qtd Quedas Atípicas]
+    ),
+    [pct_esperado] < 90 || [quedas_atipicas] >= 2
+)
+ORDER BY [pct_esperado] ASC, [quedas_atipicas] DESC
+
+// V-CONF) Medidas de conferência. Esperado: 11946 e todas as demais 0.
+EVALUATE
+ROW (
+    "linhas_fato", [Conf Linhas fato_entradas],
+    "sem_estacao", [Conf Entradas sem Estação],
+    "sem_data", [Conf Entradas sem Data],
+    "sem_clima", [Conf Entradas sem Clima],
+    "pk_duplicada", [Conf PK Duplicada],
+    "lacunas", [Conf Lacunas Estação-Dia],
+    "dif_quedas", [Conf Dif Quedas],
+    "dif_picos", [Conf Dif Picos],
+    "razao_divergente", [Conf Razão Divergente]
+)
+
+// V-LINHAS) Registros e estações por linha (cadeia Etapa II -> banco -> painel)
+// Esperado: Azul 4163/23 | Prata 1991/11 | Verde 2534/14 | Vermelha 3258/18
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_estacao[nome_linha],
+    "registros", [Conf Linhas fato_entradas],
+    "estacoes", [Qtd Estações]
+)
+ORDER BY dim_estacao[nome_linha]

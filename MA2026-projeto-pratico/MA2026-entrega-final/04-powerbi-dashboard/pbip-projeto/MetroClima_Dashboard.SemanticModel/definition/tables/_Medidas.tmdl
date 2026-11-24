@@ -1,0 +1,280 @@
+table _Medidas
+	lineageTag: 76d42558-f819-415d-8070-a6f0caa4b9a4
+
+	measure Entradas = SUM ( fato_entradas[entradas] )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: 34f24150-4de5-4a2e-b5ea-824f00bdcb97
+
+	measure 'Qtd Registros' = COUNTROWS ( fato_entradas )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: df798a1b-00cb-4b95-a179-b20bdd6feae4
+
+	measure 'Qtd Estações' = DISTINCTCOUNT ( fato_entradas[id_estacao] )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: af5447c6-4313-4e04-a93e-ffadbc17c70f
+
+	measure 'Qtd Dias' = DISTINCTCOUNT ( fato_entradas[data] )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: 698c59d7-167d-46b0-af6e-57ae990fa6a6
+
+	measure 'Média por Estação-Dia' = DIVIDE ( [Entradas], [Qtd Registros] )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: f596b23e-467e-4b8e-b9f8-41d7bf06a913
+
+	measure 'Média Diária da Rede' = DIVIDE ( [Entradas], [Qtd Dias] )
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: 747b778d-be90-4717-b7f0-740ca0b28c9b
+
+	measure 'Participação %' = DIVIDE ( [Entradas], CALCULATE ( [Entradas], ALLSELECTED ( dim_estacao ) ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 Demanda
+		lineageTag: 29a97434-f377-4256-b79b-1487bb13a94c
+
+	measure 'Ranking Estação' =
+			IF (
+			    ISINSCOPE ( dim_estacao[estacao_linha] ),
+			    RANKX ( ALLSELECTED ( dim_estacao[estacao_linha] ), [Entradas], , DESC, DENSE )
+			)
+		formatString: #,0
+		displayFolder: 01 Demanda
+		lineageTag: ce43474e-c953-4fa8-996f-f5f6e171e333
+
+	measure 'Cor Linha' =
+			SWITCH (
+			    SELECTEDVALUE ( dim_estacao[nome_linha] ),
+			    "Azul", "#0455A1",
+			    "Verde", "#007E5E",
+			    "Vermelha", "#EE372F",
+			    "Prata", "#8C9294",
+			    "#7F7F7F"
+			)
+		displayFolder: 01 Demanda
+		lineageTag: a0eecf48-7835-4e47-9741-c2d06f229a6f
+
+	measure 'Entradas Esperadas' = SUM ( fato_entradas[media_ref] )
+		formatString: #,0
+		displayFolder: 02 Esperado
+		lineageTag: 15d35219-ae79-4ee4-9d5a-95436360094b
+
+	measure 'Desvio vs Esperado' = [Entradas] - [Entradas Esperadas]
+		formatString: #,0
+		displayFolder: 02 Esperado
+		lineageTag: b65582e4-99c1-42a9-b2e4-872ac2cff6f2
+
+	measure '% do Esperado' = DIVIDE ( [Entradas], [Entradas Esperadas] )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 02 Esperado
+		lineageTag: f5e69d53-f48f-4a7d-b2b9-c665bcb39f91
+
+	measure 'Razão Média %' = AVERAGE ( fato_entradas[razao_media] )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 02 Esperado
+		lineageTag: ff6813f0-c33c-4b2d-8a9a-9c20e5af5800
+
+	measure 'Cor % Esperado' =
+			VAR p = [% do Esperado]
+			RETURN
+			    SWITCH (
+			        TRUE (),
+			        ISBLANK ( p ), "#BDBDBD",
+			        p >= 0.99, "#2E7D32",
+			        p >= 0.97, "#F9A825",
+			        "#B20000"
+			    )
+		displayFolder: 02 Esperado
+		lineageTag: 0350838f-4f57-4cca-9ef0-b3147fab2970
+
+	measure 'Qtd Quedas Atípicas' = SUM ( fato_entradas[flag_queda_atipica] ) + 0
+		formatString: #,0
+		displayFolder: 03 Anomalias
+		lineageTag: d2d9b1e0-06df-490c-9b25-5612a1804b08
+
+	measure 'Qtd Picos Atípicos' = SUM ( fato_entradas[flag_pico_atipico] ) + 0
+		formatString: #,0
+		displayFolder: 03 Anomalias
+		lineageTag: 1deb5130-ed1c-4c7d-b0d3-26b32dcf5dcc
+
+	measure 'Qtd Anomalias' = [Qtd Quedas Atípicas] + [Qtd Picos Atípicos]
+		formatString: #,0
+		displayFolder: 03 Anomalias
+		lineageTag: bb921553-734c-43c7-9400-803f800df531
+
+	measure 'Taxa de Quedas %' = DIVIDE ( [Qtd Quedas Atípicas], [Qtd Registros] )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 03 Anomalias
+		lineageTag: a2abc029-4742-4031-8be9-eddbce14b8b8
+
+	measure 'Entradas sem Atípicos' = CALCULATE ( [Entradas], fato_entradas[status_entradas] = "Normal" )
+		formatString: #,0
+		displayFolder: 03 Anomalias
+		lineageTag: 23656543-ec7c-43a2-910b-b854a32cb0ee
+
+	measure 'Flag Crítico C5' = IF ( [% do Esperado] < 0.9 || [Qtd Quedas Atípicas] >= 2, 1, 0 )
+		formatString: #,0
+		displayFolder: 03 Anomalias
+		lineageTag: 8b153730-8a59-47fd-9c74-5c3df669e9b5
+
+	measure 'Média Diária Mês Anterior' = CALCULATE ( [Média Diária da Rede], DATEADD ( dim_tempo[data], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 04 Tempo
+		lineageTag: 989b2499-f321-4b3f-b1d6-211e56700a99
+
+	measure 'Cresc. MoM %' =
+			VAR Atual = [Média Diária da Rede]
+			VAR Anterior = [Média Diária Mês Anterior]
+			RETURN
+			    IF ( NOT ISBLANK ( Atual ), DIVIDE ( Atual - Anterior, Anterior ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 04 Tempo
+		lineageTag: f49d9432-3c8c-4395-8b39-ece3814c38f9
+
+	measure 'Entradas Acumulado Ano' = TOTALYTD ( [Entradas], dim_tempo[data] )
+		formatString: #,0
+		displayFolder: 04 Tempo
+		lineageTag: 742e7191-2755-4bd1-b716-2097087df798
+
+	measure 'Precipitação Média (mm)' =
+			CALCULATE (
+			    AVERAGE ( dim_clima[precipitacao] ),
+			    TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+			)
+		formatString: #,0.0
+		displayFolder: 05 Clima
+		lineageTag: b88bfa37-e30e-42cb-99c9-8be3ba43f449
+
+	measure 'Temp Máx Média' =
+			CALCULATE (
+			    AVERAGE ( dim_clima[temp_max] ),
+			    TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+			)
+		formatString: #,0.0
+		displayFolder: 05 Clima
+		lineageTag: bd7eaf12-2991-4716-a51b-541f2dd4896a
+
+	measure 'Dias com Chuva Forte' = CALCULATE ( [Qtd Dias], dim_clima[condicao_chuva] = "Chuva Forte" ) + 0
+		formatString: #,0
+		displayFolder: 05 Clima
+		lineageTag: 18a983b6-2350-4c08-b9ba-d2b4b4a5117b
+
+	measure '% do Esperado Chuva Forte' = CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Chuva Forte" )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 05 Clima
+		lineageTag: f46ac64c-9483-436b-98e6-d24022db3f8e
+
+	measure '% do Esperado Sem Chuva' = CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Sem Chuva" )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 05 Clima
+		lineageTag: 4d69181e-27d1-4a67-b195-984687366158
+
+	measure 'Efeito Chuva Forte (p.p.)' = [% do Esperado Chuva Forte] - [% do Esperado Sem Chuva]
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 05 Clima
+		lineageTag: 73c60bd3-2d46-467b-b398-52d36edcb7ab
+
+	measure 'Taxa de Quedas Chuva Forte %' = CALCULATE ( [Taxa de Quedas %], dim_clima[condicao_chuva] = "Chuva Forte" )
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: 05 Clima
+		lineageTag: 6fcb17da-9343-4879-b4c1-7cf9afbed2dd
+
+	measure 'Título Visão Geral' =
+			"Como está a demanda? -- "
+			    & IF (
+			        HASONEVALUE ( dim_estacao[nome_linha] ),
+			        "Linha " & VALUES ( dim_estacao[nome_linha] ),
+			        "todas as linhas"
+			    )
+		displayFolder: 06 Rótulos
+		lineageTag: 1a866622-e0ad-47d1-aa6e-a705857f3194
+
+	measure 'Título Estação' = "Estação " & SELECTEDVALUE ( dim_estacao[estacao_linha], "(várias)" )
+		displayFolder: 06 Rótulos
+		lineageTag: a54afe7a-c0df-4a3f-87a9-464627313716
+
+	measure 'Período Selecionado' =
+			VAR Ini = CALCULATE ( MIN ( fato_entradas[data] ) )
+			VAR Fim = CALCULATE ( MAX ( fato_entradas[data] ) )
+			RETURN
+			    IF (
+			        ISBLANK ( Ini ),
+			        "Sem registros no período",
+			        "Registros de " & FORMAT ( Ini, "dd/MM/yyyy" ) & " a " & FORMAT ( Fim, "dd/MM/yyyy" )
+			    )
+		displayFolder: 06 Rótulos
+		lineageTag: fca9d9d1-00d0-4ab4-a4af-593a66ce96b7
+
+	measure 'Conf Linhas fato_entradas' = COUNTROWS ( fato_entradas )
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: ebcb9b99-b473-4509-9064-642a66ec91e7
+
+	measure 'Conf Entradas sem Estação' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_estacao[estacao] ) ) ) ) + 0
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: e3b62296-83ce-4afc-8761-904df8eb002f
+
+	measure 'Conf Entradas sem Data' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_tempo[mes] ) ) ) ) + 0
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 06e76904-5052-4030-8536-99b42f7937d7
+
+	measure 'Conf Entradas sem Clima' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_clima[faixa_chuva] ) ) ) ) + 0
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 60446f86-aaca-4dd6-a54f-8cf63e4fb5dc
+
+	measure 'Conf PK Duplicada' =
+			( COUNTROWS ( dim_estacao ) - DISTINCTCOUNT ( dim_estacao[id_estacao] ) )
+			    + ( COUNTROWS ( dim_tempo ) - DISTINCTCOUNT ( dim_tempo[data] ) )
+			    + ( COUNTROWS ( dim_clima ) - DISTINCTCOUNT ( dim_clima[data] ) )
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: c3008445-58d0-433d-babb-c09f31b4abdc
+
+	measure 'Conf Lacunas Estação-Dia' = COUNTROWS ( dim_estacao ) * COUNTROWS ( dim_tempo ) - COUNTROWS ( fato_entradas )
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 56fb41c8-7f27-4dda-b02c-2d5b0da45661
+
+	measure 'Conf Dif Quedas' =
+			[Qtd Quedas Atípicas]
+			    - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Queda Atípica" ) + 0 )
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 68d22684-2050-40da-af9d-73ac7d878908
+
+	measure 'Conf Dif Picos' =
+			[Qtd Picos Atípicos]
+			    - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Pico Atípico" ) + 0 )
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 4a1a9015-eed9-41cd-9ed6-48dd947cad0f
+
+	measure 'Conf Razão Divergente' =
+			COUNTROWS (
+			    FILTER (
+			        fato_entradas,
+			        ABS ( DIVIDE ( fato_entradas[entradas], fato_entradas[media_ref] ) - fato_entradas[razao_media] ) > 0.001
+			    )
+			) + 0
+		formatString: #,0
+		displayFolder: 99 Conferência
+		lineageTag: 615f3156-9d3c-4fac-8da6-3390eb6ea367
+
+	column Coluna1
+		dataType: int64
+		isHidden
+		lineageTag: 38716799-db7a-4fee-bdd9-506031fb636e
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Coluna1]
+
+	partition _Medidas = calculated
+		mode: import
+		source = ROW("Coluna1", 0)
+

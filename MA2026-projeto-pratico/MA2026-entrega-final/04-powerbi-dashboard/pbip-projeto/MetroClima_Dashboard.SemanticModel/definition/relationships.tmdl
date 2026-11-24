@@ -1,0 +1,12 @@
+relationship R1_estacao
+	fromColumn: fato_entradas.id_estacao
+	toColumn: dim_estacao.id_estacao
+
+relationship R2_tempo
+	fromColumn: fato_entradas.data
+	toColumn: dim_tempo.data
+
+relationship R3_clima
+	fromColumn: fato_entradas.data
+	toColumn: dim_clima.data
+

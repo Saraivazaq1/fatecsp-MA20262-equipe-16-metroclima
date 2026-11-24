@@ -1,0 +1,3 @@
+Pasta provisória, pode ser apagada.
+O projeto .pbip definitivo ficou em Microinformatica\MetroClima-pbip
+(caminho mais curto, exigido pelas ferramentas de edição).

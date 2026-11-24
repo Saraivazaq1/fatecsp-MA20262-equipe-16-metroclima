@@ -1,0 +1,521 @@
+createOrReplace
+
+	table _Medidas
+
+		measure 'Entradas' = SUM ( fato_entradas[entradas] )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Qtd Registros' = COUNTROWS ( fato_entradas )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Qtd Estações' = DISTINCTCOUNT ( fato_entradas[id_estacao] )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Qtd Dias' = DISTINCTCOUNT ( fato_entradas[data] )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Média por Estação-Dia' = DIVIDE ( [Entradas], [Qtd Registros] )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Média Diária da Rede' = DIVIDE ( [Entradas], [Qtd Dias] )
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Participação %' = DIVIDE ( [Entradas], CALCULATE ( [Entradas], ALLSELECTED ( dim_estacao ) ) )
+			formatString: 0.0%;-0.0%;0.0%
+			displayFolder: 01 Demanda
+
+		measure 'Ranking Estação' =
+				IF (
+				    ISINSCOPE ( dim_estacao[estacao_linha] ),
+				    RANKX ( ALLSELECTED ( dim_estacao[estacao_linha] ), [Entradas], , DESC, DENSE )
+				)
+			formatString: #,0
+			displayFolder: 01 Demanda
+
+		measure 'Cor Linha' =
+				SWITCH (
+				    SELECTEDVALUE ( dim_estacao[nome_linha] ),
+				    "Azul", "#0455A1",
+				    "Verde", "#007E5E",
+				    "Vermelha", "#EE372F",
+				    "Prata", "#8C9294",
+				    "#7F7F7F"
+				)
+			displayFolder: 01 Demanda
+
+		measure 'Entradas Esperadas' = SUM ( fato_entradas[media_ref] )
+			formatString: #,0
+			displayFolder: 02 Esperado
+
+		measure 'Desvio vs Esperado' = [Entradas] - [Entradas Esperadas]
+			formatString: #,0
+			displayFolder: 02 Esperado
+
+		measure '% do Esperado' = DIVIDE ( [Entradas], [Entradas Esperadas] )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 02 Esperado
+
+		measure 'Razão Média %' = AVERAGE ( fato_entradas[razao_media] )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 02 Esperado
+
+		measure 'Cor % Esperado' =
+				VAR p = [% do Esperado]
+				RETURN
+				    SWITCH (
+				        TRUE (),
+				        ISBLANK ( p ), "#BDBDBD",
+				        p >= 0.99, "#2E7D32",
+				        p >= 0.97, "#F9A825",
+				        "#B20000"
+				    )
+			displayFolder: 02 Esperado
+
+		measure 'Qtd Quedas Atípicas' = SUM ( fato_entradas[flag_queda_atipica] ) + 0
+			formatString: #,0
+			displayFolder: 03 Anomalias
+
+		measure 'Qtd Picos Atípicos' = SUM ( fato_entradas[flag_pico_atipico] ) + 0
+			formatString: #,0
+			displayFolder: 03 Anomalias
+
+		measure 'Qtd Anomalias' = [Qtd Quedas Atípicas] + [Qtd Picos Atípicos]
+			formatString: #,0
+			displayFolder: 03 Anomalias
+
+		measure 'Taxa de Quedas %' = DIVIDE ( [Qtd Quedas Atípicas], [Qtd Registros] )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 03 Anomalias
+
+		measure 'Entradas sem Atípicos' = CALCULATE ( [Entradas], fato_entradas[status_entradas] = "Normal" )
+			formatString: #,0
+			displayFolder: 03 Anomalias
+
+		measure 'Flag Crítico C5' = IF ( [% do Esperado] < 0.9 || [Qtd Quedas Atípicas] >= 2, 1, 0 )
+			formatString: #,0
+			displayFolder: 03 Anomalias
+
+		measure 'Média Diária Mês Anterior' = CALCULATE ( [Média Diária da Rede], DATEADD ( dim_tempo[data], -1, MONTH ) )
+			formatString: #,0
+			displayFolder: 04 Tempo
+
+		measure 'Cresc. MoM %' =
+				VAR Atual = [Média Diária da Rede]
+				VAR Anterior = [Média Diária Mês Anterior]
+				RETURN
+				    IF ( NOT ISBLANK ( Atual ), DIVIDE ( Atual - Anterior, Anterior ) )
+			formatString: 0.0%;-0.0%;0.0%
+			displayFolder: 04 Tempo
+
+		measure 'Entradas Acumulado Ano' = TOTALYTD ( [Entradas], dim_tempo[data] )
+			formatString: #,0
+			displayFolder: 04 Tempo
+
+		measure 'Precipitação Média (mm)' =
+				CALCULATE (
+				    AVERAGE ( dim_clima[precipitacao] ),
+				    TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+				)
+			formatString: #,0.0
+			displayFolder: 05 Clima
+
+		measure 'Temp Máx Média' =
+				CALCULATE (
+				    AVERAGE ( dim_clima[temp_max] ),
+				    TREATAS ( VALUES ( fato_entradas[data] ), dim_clima[data] )
+				)
+			formatString: #,0.0
+			displayFolder: 05 Clima
+
+		measure 'Dias com Chuva Forte' = CALCULATE ( [Qtd Dias], dim_clima[condicao_chuva] = "Chuva Forte" ) + 0
+			formatString: #,0
+			displayFolder: 05 Clima
+
+		measure '% do Esperado Chuva Forte' = CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Chuva Forte" )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 05 Clima
+
+		measure '% do Esperado Sem Chuva' = CALCULATE ( [% do Esperado], dim_clima[condicao_chuva] = "Sem Chuva" )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 05 Clima
+
+		measure 'Efeito Chuva Forte (p.p.)' = [% do Esperado Chuva Forte] - [% do Esperado Sem Chuva]
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 05 Clima
+
+		measure 'Taxa de Quedas Chuva Forte %' = CALCULATE ( [Taxa de Quedas %], dim_clima[condicao_chuva] = "Chuva Forte" )
+			formatString: 0.00%;-0.00%;0.00%
+			displayFolder: 05 Clima
+
+		measure 'Título Visão Geral' =
+				"Como está a demanda? -- "
+				    & IF (
+				        HASONEVALUE ( dim_estacao[nome_linha] ),
+				        "Linha " & VALUES ( dim_estacao[nome_linha] ),
+				        "todas as linhas"
+				    )
+			displayFolder: 06 Rótulos
+
+		measure 'Título Estação' = "Estação " & SELECTEDVALUE ( dim_estacao[estacao_linha], "(várias)" )
+			displayFolder: 06 Rótulos
+
+		measure 'Período Selecionado' =
+				VAR Ini = CALCULATE ( MIN ( fato_entradas[data] ) )
+				VAR Fim = CALCULATE ( MAX ( fato_entradas[data] ) )
+				RETURN
+				    IF (
+				        ISBLANK ( Ini ),
+				        "Sem registros no período",
+				        "Registros de " & FORMAT ( Ini, "dd/MM/yyyy" ) & " a " & FORMAT ( Fim, "dd/MM/yyyy" )
+				    )
+			displayFolder: 06 Rótulos
+
+		measure 'Conf Linhas fato_entradas' = COUNTROWS ( fato_entradas )
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Entradas sem Estação' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_estacao[estacao] ) ) ) ) + 0
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Entradas sem Data' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_tempo[mes] ) ) ) ) + 0
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Entradas sem Clima' = COUNTROWS ( FILTER ( fato_entradas, ISBLANK ( RELATED ( dim_clima[faixa_chuva] ) ) ) ) + 0
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf PK Duplicada' =
+				( COUNTROWS ( dim_estacao ) - DISTINCTCOUNT ( dim_estacao[id_estacao] ) )
+				    + ( COUNTROWS ( dim_tempo ) - DISTINCTCOUNT ( dim_tempo[data] ) )
+				    + ( COUNTROWS ( dim_clima ) - DISTINCTCOUNT ( dim_clima[data] ) )
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Lacunas Estação-Dia' = COUNTROWS ( dim_estacao ) * COUNTROWS ( dim_tempo ) - COUNTROWS ( fato_entradas )
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Dif Quedas' =
+				[Qtd Quedas Atípicas]
+				    - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Queda Atípica" ) + 0 )
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Dif Picos' =
+				[Qtd Picos Atípicos]
+				    - ( CALCULATE ( COUNTROWS ( fato_entradas ), fato_entradas[status_entradas] = "Pico Atípico" ) + 0 )
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		measure 'Conf Razão Divergente' =
+				COUNTROWS (
+				    FILTER (
+				        fato_entradas,
+				        ABS ( DIVIDE ( fato_entradas[entradas], fato_entradas[media_ref] ) - fato_entradas[razao_media] ) > 0.001
+				    )
+				) + 0
+			formatString: #,0
+			displayFolder: 99 Conferência
+
+		column Coluna1
+			dataType: int64
+			isHidden
+			isNameInferred
+			summarizeBy: none
+			sourceColumn: [Coluna1]
+
+		partition _Medidas = calculated
+			mode: import
+			source = ROW("Coluna1", 0)
+
+	ref table fato_entradas
+
+		column data
+			dataType: dateTime
+			formatString: Short Date
+			isHidden
+			summarizeBy: none
+			sourceColumn: data
+
+			annotation UnderlyingDateTimeDataType = Date
+
+		column id_estacao
+			dataType: string
+			isHidden
+			summarizeBy: none
+			sourceColumn: id_estacao
+
+		column linha
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: linha
+
+		column entradas
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: entradas
+
+		column tipo_dia
+			dataType: string
+			summarizeBy: none
+			sourceColumn: tipo_dia
+
+		column media_ref
+			dataType: double
+			formatString: 0.0
+			isHidden
+			summarizeBy: none
+			sourceColumn: media_ref
+
+		column razao_media
+			dataType: double
+			formatString: 0.0
+			isHidden
+			summarizeBy: none
+			sourceColumn: razao_media
+
+		column status_entradas
+			dataType: string
+			summarizeBy: none
+			sourceColumn: status_entradas
+
+		column flag_queda_atipica
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: flag_queda_atipica
+
+		column flag_pico_atipico
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: flag_pico_atipico
+
+	ref table dim_estacao
+
+		column id_estacao
+			dataType: string
+			isHidden
+			summarizeBy: none
+			sourceColumn: id_estacao
+
+		column chave_estacao
+			dataType: string
+			isHidden
+			summarizeBy: none
+			sourceColumn: chave_estacao
+
+		column estacao
+			dataType: string
+			summarizeBy: none
+			sourceColumn: estacao
+
+		column sigla
+			dataType: string
+			summarizeBy: none
+			sourceColumn: sigla
+
+		column linha
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: linha
+
+		column nome_linha
+			dataType: string
+			summarizeBy: none
+			sourceColumn: nome_linha
+			sortByColumn: linha
+
+		column estacao_linha
+			dataType: string
+			summarizeBy: none
+			sourceColumn: estacao_linha
+
+		column media_dia_util
+			dataType: double
+			formatString: 0.0
+			isHidden
+			summarizeBy: none
+			sourceColumn: media_dia_util
+
+		column media_sabado
+			dataType: double
+			formatString: 0.0
+			isHidden
+			summarizeBy: none
+			sourceColumn: media_sabado
+
+		column media_domingo
+			dataType: double
+			formatString: 0.0
+			isHidden
+			summarizeBy: none
+			sourceColumn: media_domingo
+
+		column dias_registrados
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: dias_registrados
+
+		column dias_esperados
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: dias_esperados
+
+	ref table dim_tempo
+
+		column data
+			dataType: dateTime
+			formatString: Short Date
+			summarizeBy: none
+			sourceColumn: data
+
+			annotation UnderlyingDateTimeDataType = Date
+
+		column ano
+			dataType: int64
+			summarizeBy: none
+			sourceColumn: ano
+
+		column mes
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: mes
+
+		column nome_mes
+			dataType: string
+			summarizeBy: none
+			sourceColumn: nome_mes
+			sortByColumn: mes
+
+		column ano_mes
+			dataType: string
+			summarizeBy: none
+			sourceColumn: ano_mes
+
+		column mes_inicio
+			dataType: dateTime
+			formatString: Short Date
+			isHidden
+			summarizeBy: none
+			sourceColumn: mes_inicio
+
+			annotation UnderlyingDateTimeDataType = Date
+
+		column trimestre
+			dataType: string
+			summarizeBy: none
+			sourceColumn: trimestre
+
+		column dia_semana
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: dia_semana
+
+		column nome_dia
+			dataType: string
+			summarizeBy: none
+			sourceColumn: nome_dia
+			sortByColumn: dia_semana
+
+		column fim_de_semana
+			dataType: string
+			summarizeBy: none
+			sourceColumn: fim_de_semana
+
+		column feriado
+			dataType: string
+			summarizeBy: none
+			sourceColumn: feriado
+
+		hierarchy Calendário
+
+			level ano
+				column: ano
+
+			level trimestre
+				column: trimestre
+
+			level nome_mes
+				column: nome_mes
+
+			level data
+				column: data
+
+	ref table dim_clima
+
+		column data
+			dataType: dateTime
+			formatString: Short Date
+			summarizeBy: none
+			sourceColumn: data
+
+			annotation UnderlyingDateTimeDataType = Date
+
+		column cidade
+			dataType: string
+			isHidden
+			summarizeBy: none
+			sourceColumn: cidade
+
+		column temp_max
+			dataType: double
+			formatString: 0.0
+			summarizeBy: none
+			sourceColumn: temp_max
+
+		column temp_min
+			dataType: double
+			formatString: 0.0
+			summarizeBy: none
+			sourceColumn: temp_min
+
+		column precipitacao
+			dataType: double
+			formatString: 0.0
+			summarizeBy: none
+			sourceColumn: precipitacao
+
+		column condicao_chuva
+			dataType: string
+			summarizeBy: none
+			sourceColumn: condicao_chuva
+			sortByColumn: ordem_condicao
+
+		column faixa_chuva
+			dataType: string
+			summarizeBy: none
+			sourceColumn: faixa_chuva
+
+		column ordem_condicao
+			dataType: int64
+			isHidden
+			summarizeBy: none
+			sourceColumn: ordem_condicao
+
+	relationship R1_estacao
+		fromColumn: fato_entradas.id_estacao
+		toColumn: dim_estacao.id_estacao
+
+	relationship R2_tempo
+		fromColumn: fato_entradas.data
+		toColumn: dim_tempo.data
+
+	relationship R3_clima
+		fromColumn: fato_entradas.data
+		toColumn: dim_clima.data

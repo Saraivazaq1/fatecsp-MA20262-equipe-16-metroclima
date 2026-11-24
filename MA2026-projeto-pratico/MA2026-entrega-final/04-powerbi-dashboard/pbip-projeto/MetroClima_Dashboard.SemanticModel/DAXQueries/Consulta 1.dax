@@ -1,0 +1,48 @@
+EVALUATE
+ROW (
+    "linhas", [Conf Linhas fato_entradas],
+    "entradas", [Entradas],
+    "esperadas", ROUND ( [Entradas Esperadas], 0 ),
+    "pct_esperado", ROUND ( 100 * [% do Esperado], 2 ),
+    "quedas", [Qtd Quedas Atípicas],
+    "picos", [Qtd Picos Atípicos],
+    "sem_estacao", [Conf Entradas sem Estação],
+    "sem_data", [Conf Entradas sem Data],
+    "sem_clima", [Conf Entradas sem Clima],
+    "pk_dup", [Conf PK Duplicada],
+    "lacunas", [Conf Lacunas Estação-Dia],
+    "dif_quedas", [Conf Dif Quedas],
+    "dif_picos", [Conf Dif Picos],
+    "razao_div", [Conf Razão Divergente],
+    "efeito_chuva", ROUND ( 100 * [Efeito Chuva Forte (p.p.)], 2 ),
+    "precip", ROUND ( [Precipitação Média (mm)], 2 )
+)
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_estacao[nome_linha],
+    "total_entradas", [Entradas],
+    "quedas", [Qtd Quedas Atípicas],
+    "picos", [Qtd Picos Atípicos],
+    "pct", ROUND ( 100 * [% do Esperado], 2 )
+)
+ORDER BY dim_estacao[nome_linha]
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_clima[faixa_chuva],
+    "dias", [Qtd Dias],
+    "entradas", [Entradas],
+    "quedas", [Qtd Quedas Atípicas],
+    "picos", [Qtd Picos Atípicos],
+    "taxa", ROUND ( 100 * [Taxa de Quedas %], 2 )
+)
+ORDER BY dim_clima[faixa_chuva]
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    dim_tempo[nome_mes],
+    "entradas", [Entradas],
+    "mom", ROUND ( 100 * [Cresc. MoM %], 1 ),
+    "acum", [Entradas Acumulado Ano]
+)

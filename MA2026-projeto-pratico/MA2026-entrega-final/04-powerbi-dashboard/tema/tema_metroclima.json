@@ -1,0 +1,23 @@
+{
+  "name": "MetroClima Fatec SP",
+  "dataColors": ["#0455A1", "#007E5E", "#EE372F", "#8C9294",
+                 "#1F4E79", "#6FA8DC", "#E0A526", "#3B3B3B"],
+  "background": "#FFFFFF",
+  "foreground": "#252423",
+  "tableAccent": "#0455A1",
+  "good": "#2E7D32",
+  "neutral": "#F9A825",
+  "bad": "#B20000",
+  "maximum": "#2E7D32",
+  "center": "#F9A825",
+  "minimum": "#B20000",
+  "textClasses": {
+    "title":   { "fontFace": "Segoe UI Semibold", "fontSize": 12, "color": "#1F4E79" },
+    "header":  { "fontFace": "Segoe UI Semibold", "fontSize": 11, "color": "#252423" },
+    "label":   { "fontFace": "Segoe UI", "fontSize": 10, "color": "#252423" },
+    "callout": { "fontFace": "Segoe UI Semibold", "fontSize": 24, "color": "#252423" }
+  },
+  "visualStyles": {
+    "page": { "*": { "background": [ { "color": { "solid": { "color": "#F4F6F8" } }, "transparency": 0 } ] } }
+  }
+}

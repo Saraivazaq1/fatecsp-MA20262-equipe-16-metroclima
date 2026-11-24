@@ -1,0 +1,23 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: pt-BR
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["pConexaoODBC","tst_Conexao","dim_estacao","dim_tempo","dim_clima","fato_entradas"]
+
+annotation PBI_ProTooling = ["TMDLView_Desktop","DaxQueryView_Desktop","DevMode"]
+
+ref table dim_estacao
+ref table dim_tempo
+ref table dim_clima
+ref table fato_entradas
+ref table _Medidas
+
+ref cultureInfo pt-BR
+

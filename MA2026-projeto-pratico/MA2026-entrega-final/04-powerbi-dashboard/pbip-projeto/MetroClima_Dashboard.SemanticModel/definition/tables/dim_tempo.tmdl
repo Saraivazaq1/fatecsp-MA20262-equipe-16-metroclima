@@ -1,0 +1,123 @@
+table dim_tempo
+	lineageTag: a77faec5-0c52-4db2-95e0-dd09a1e46287
+	dataCategory: Time
+
+	column data
+		dataType: dateTime
+		isKey
+		formatString: Short Date
+		lineageTag: 6b73af8f-3e01-4919-9eb9-df6578c61eed
+		summarizeBy: none
+		sourceColumn: data
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column ano
+		dataType: int64
+		lineageTag: 1ea9d373-5059-4ca1-8440-929c24884f72
+		summarizeBy: none
+		sourceColumn: ano
+
+	column mes
+		dataType: int64
+		isHidden
+		lineageTag: 04abd14c-a78d-463b-8a59-6d739228939e
+		summarizeBy: none
+		sourceColumn: mes
+
+	column nome_mes
+		dataType: string
+		lineageTag: dbff9c4a-e213-4800-bf87-37c6cb058246
+		summarizeBy: none
+		sourceColumn: nome_mes
+		sortByColumn: mes
+
+	column ano_mes
+		dataType: string
+		lineageTag: ba22075d-69f8-4bdb-b904-b8730ce731e7
+		summarizeBy: none
+		sourceColumn: ano_mes
+
+	column mes_inicio
+		dataType: dateTime
+		isHidden
+		formatString: Short Date
+		lineageTag: 249ea185-1b4b-4f4d-a7af-5a8d4e9436f5
+		summarizeBy: none
+		sourceColumn: mes_inicio
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column trimestre
+		dataType: string
+		lineageTag: 2d6bb15d-bc74-4097-8486-c030ade5c412
+		summarizeBy: none
+		sourceColumn: trimestre
+
+	column dia_semana
+		dataType: int64
+		isHidden
+		lineageTag: 164b8f2f-c37c-41e8-8fca-80152a02707b
+		summarizeBy: none
+		sourceColumn: dia_semana
+
+	column nome_dia
+		dataType: string
+		lineageTag: a2453a5f-1662-43df-ac70-7b6d73160ae8
+		summarizeBy: none
+		sourceColumn: nome_dia
+		sortByColumn: dia_semana
+
+	column fim_de_semana
+		dataType: string
+		lineageTag: 0095e076-b73b-47f5-845b-da4c9634238c
+		summarizeBy: none
+		sourceColumn: fim_de_semana
+
+	column feriado
+		dataType: string
+		lineageTag: 198ab61e-c792-46e5-9725-2d74320022e7
+		summarizeBy: none
+		sourceColumn: feriado
+
+	hierarchy Calendário
+		lineageTag: 7377d379-4e5c-4d29-99b1-77db783b9e42
+
+		level ano
+			lineageTag: 3a3e0e5a-c9f4-4a03-9835-fcbc084bda00
+			column: ano
+
+		level trimestre
+			lineageTag: 2a94f86c-af90-4a4d-8b07-8855d4bf3d77
+			column: trimestre
+
+		level nome_mes
+			lineageTag: 521b3cb8-92aa-401a-993b-1b81225e3741
+			column: nome_mes
+
+		level data
+			lineageTag: 7015c1d8-17df-4da3-aebd-0e2d2223f2bc
+			column: data
+
+	partition dim_tempo = m
+		mode: import
+		source =
+				// dim_tempo -- view dim_tempo da etapa de SQL (= dCalendario da Etapa III)
+				// Grão: um dia (01/01/2026 a 30/06/2026 = 181). PK: data. Marcar como tabela de datas.
+				let
+				    Fonte = Odbc.Query(pConexaoODBC,
+				        "SELECT data, ano, mes, nome_mes, ano_mes, mes_inicio, trimestre,
+				                dia_semana, nome_dia, fim_de_semana, feriado
+				           FROM dim_tempo"),
+				    Tipos = Table.TransformColumnTypes(Fonte, {
+				        {"data", type date}, {"ano", Int64.Type}, {"mes", Int64.Type},
+				        {"nome_mes", type text}, {"ano_mes", type text}, {"mes_inicio", type date},
+				        {"trimestre", type text}, {"dia_semana", Int64.Type}, {"nome_dia", type text},
+				        {"fim_de_semana", type text}, {"feriado", type text}}, "en-US")
+				in
+				    Tipos
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+
